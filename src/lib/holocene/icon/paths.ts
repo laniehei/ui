@@ -11,6 +11,7 @@ import arrowUp from './svg/arrow-up.svelte';
 import ascending from './svg/ascending.svelte';
 import astronaut from './svg/astronaut.svelte';
 import aws from './svg/aws.svelte';
+import bars from './svg/bars.svelte';
 import batchOperation from './svg/batch-operation.svelte';
 import book from './svg/book-sparkles.svelte';
 import bookmark from './svg/bookmark.svelte';
@@ -119,6 +120,7 @@ import spinner from './svg/spinner.svelte';
 import squareInfo from './svg/square-info.svelte';
 import starEmpty from './svg/star-empty.svelte';
 import starFilled from './svg/star-filled.svelte';
+import storage from './svg/storage.svelte';
 import summary from './svg/summary.svelte';
 import sun from './svg/sun.svelte';
 import support from './svg/support.svelte';
@@ -167,6 +169,7 @@ export const icons = {
   ascending,
   astronaut,
   aws,
+  bars,
   'batch-operation': batchOperation,
   book,
   bookmark,
@@ -275,6 +278,7 @@ export const icons = {
   'square-info': squareInfo,
   'star-empty': starEmpty,
   'star-filled': starFilled,
+  storage,
   success: checkmark,
   sun,
   summary,

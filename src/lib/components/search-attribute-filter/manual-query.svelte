@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Writable } from 'svelte/store';
   import { fade, slide } from 'svelte/transition';
 
   import { page } from '$app/state';
@@ -6,17 +7,31 @@
   import Button from '$lib/holocene/button.svelte';
   import Input from '$lib/holocene/input/input.svelte';
   import { translate } from '$lib/i18n/translate';
-  import { workflowFilters } from '$lib/stores/filters';
+  import type { SearchAttributeFilter } from '$lib/models/search-attribute-filters';
   import { currentPageKey } from '$lib/stores/pagination';
-  import { searchAttributes } from '$lib/stores/search-attributes';
-  import { refresh, workflowsQuery } from '$lib/stores/workflows';
+  import { searchAttributes as defaultSearchAttributes } from '$lib/stores/search-attributes';
+  import type { SearchAttributes } from '$lib/types/workflows';
   import { toListWorkflowFilters } from '$lib/utilities/query/to-list-workflow-filters';
   import { MAX_QUERY_LENGTH } from '$lib/utilities/request-from-api';
   import { updateQueryParameters } from '$lib/utilities/update-query-parameters';
 
+  interface Props {
+    filters: Writable<SearchAttributeFilter[]>;
+    searchAttributes?: SearchAttributes;
+    id: string;
+    onSearch?: (query: string) => void;
+  }
+
+  let {
+    filters,
+    searchAttributes = $defaultSearchAttributes,
+    id,
+    onSearch,
+  }: Props = $props();
+
   let manualSearchString = $state('');
 
-  const query = $derived(page.url.searchParams.get('query'));
+  const query = $derived(page.url.searchParams.get('query') ?? '');
 
   function setManualString(query: string) {
     manualSearchString = query;
@@ -26,23 +41,19 @@
     setManualString(query);
   });
 
-  const onSearch = () => {
+  const handleSearch = () => {
     if (!manualSearchString) {
-      $workflowFilters = [];
-      $workflowsQuery = '';
+      $filters = [];
     } else {
       try {
-        $workflowFilters = toListWorkflowFilters(
-          manualSearchString,
-          $searchAttributes,
-        );
+        $filters = toListWorkflowFilters(manualSearchString, searchAttributes);
       } catch (e) {
         console.error(e);
       }
     }
 
     if (manualSearchString && manualSearchString === query) {
-      $refresh = Date.now();
+      onSearch?.(manualSearchString);
     } else {
       updateQueryParameters({
         url: page.url,
@@ -55,12 +66,17 @@
   };
 
   function handleClearInput() {
-    onSearch();
+    handleSearch();
   }
 </script>
 
 <div class="w-full border border-t-0 border-subtle" in:fade>
-  <form onsubmit={onSearch} class="flex gap-0" transition:slide role="search">
+  <form
+    onsubmit={handleSearch}
+    class="flex gap-0"
+    transition:slide
+    role="search"
+  >
     <Input
       id="query"
       type="search"
@@ -73,14 +89,18 @@
       clearable
       copyButtonLabel={translate('common.copy-icon-title')}
       clearButtonLabel={translate('common.clear-input-button-label')}
-      on:clear={handleClearInput}
+      onClear={handleClearInput}
       bind:value={manualSearchString}
       maxLength={MAX_QUERY_LENGTH}
       hideCount={!manualSearchString ||
         manualSearchString.length < MAX_QUERY_LENGTH}
-      data-testid="manual-search-input"
+      data-testid="{id}-manual-search-input"
     />
-    <Button data-testid="manual-search-button" variant="ghost" type="submit">
+    <Button
+      data-testid="{id}-manual-search-button"
+      variant="ghost"
+      type="submit"
+    >
       {translate('common.search')}
     </Button>
   </form>

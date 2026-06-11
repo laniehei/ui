@@ -41,6 +41,7 @@ export const Strings = {
   'configure-headers-description':
     'Add (<1></1>), re-arrange (<2></2>), and remove (<3></3>), {{type}} to personalize the {{title}} Table.',
   'all-statuses': 'All Statuses',
+  'row-accessible-name': 'Workflow {{workflowId}}: {{status}}',
   running: 'Running',
   'timed-out': 'Timed Out',
   completed: 'Completed',
@@ -163,9 +164,11 @@ export const Strings = {
   'workflow-error-no-compatible-workers-title': 'No Compatible Workers Running',
   'workflow-error-no-compatible-workers-description':
     'There are no compatible Workers polling the {{taskQueue}} Task Queue.',
+  'dismiss-common-errors': 'Dismiss Common Errors',
   'state-transitions': 'State Transitions',
   'start-and-close-time': 'Start & Close Time',
   relationships: 'Relationships',
+  'family-node-label': 'Workflow {{id}}: {{status}}',
   parents_zero: '0 Parents',
   parents_one: '1 Parent',
   'pending-children_one': '1 Pending Child',
@@ -355,4 +358,7 @@ export const Strings = {
   'external-payload-tooltip':
     'History Size does not include externally stored payload size.',
   sdk: 'Workflow SDK',
+  'show-common-errors': 'Show Common Errors',
+  'show-common-errors-description':
+    'Show alerts for common errors if present in the Event History',
 } as const;

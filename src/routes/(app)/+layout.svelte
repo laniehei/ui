@@ -358,12 +358,22 @@
       </div>
     {/snippet}
     {#snippet footer()}
-      <BottomNavigation
-        sections={[linkList, linkListForSecondGroup]}
-        {namespaceList}
-        {isCloud}
-        {showNamespacePicker}
-      >
+      <BottomNavigation {namespaceList} {isCloud} {showNamespacePicker}>
+        {#snippet linksSnippet()}
+          {#each [...linkListForSecondGroup]
+            .filter((item) => !item.hidden)
+            .reverse() as link, i (i)}
+            <NavigationItem {...link} link={link.href} />
+          {/each}
+
+          <hr class="border-subtle" />
+
+          {#each [...linkList]
+            .filter((item) => !item.hidden)
+            .reverse() as link, i (i)}
+            <NavigationItem {...link} link={link.href} />
+          {/each}
+        {/snippet}
         <UserMenuMobile {logout} />
       </BottomNavigation>
     {/snippet}

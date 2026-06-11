@@ -5,7 +5,7 @@ import {
   setLastDataEncoderFailure,
   setLastDataEncoderSuccess,
 } from '$lib/stores/data-encoder-config';
-import type { Payloads } from '$lib/types';
+import type { Payload, Payloads } from '$lib/types';
 import type { NetworkError } from '$lib/types/global';
 import { getAccessToken, getIdToken } from '$lib/utilities/core-provider';
 import {
@@ -18,11 +18,15 @@ import { stringifyWithBigInt } from '$lib/utilities/parse-with-big-int';
 
 export type PotentialPayloads = { payloads: unknown[] };
 
+export const NO_CODEC_SERVER_CONFIGURED_ERROR = new Error(
+  'No codec server configured',
+);
+
 export async function codeServerRequest({
   type,
   payloads,
 }: {
-  type: 'decode' | 'encode';
+  type: 'decode' | 'encode' | 'download';
   payloads: PotentialPayloads;
 }): Promise<Payloads> {
   const settings = page.data.settings;
@@ -31,7 +35,7 @@ export async function codeServerRequest({
 
   if (!endpoint) {
     if (type === 'decode') return payloads;
-    throw new Error('No codec endpoint configured');
+    throw NO_CODEC_SERVER_CONFIGURED_ERROR;
   }
 
   const passAccessToken = getCodecPassAccessToken(settings);
@@ -71,10 +75,11 @@ export async function codeServerRequest({
         body: stringifyWithBigInt(payloads),
       };
 
-  const decoderResponse: Promise<PotentialPayloads> = fetch(
-    endpoint + `/${type}`,
-    requestOptions,
-  )
+  // explicitly not constructing a new URL here because it
+  // drops any route prefix the user has configured, eg localhost:8080/codec-server
+  const url = `${endpoint}/${type}?preserveStorageRefs=true`;
+
+  const decoderResponse: Promise<PotentialPayloads> = fetch(url, requestOptions)
     .then((response) => {
       if (response.ok === false) {
         throw {
@@ -93,12 +98,10 @@ export async function codeServerRequest({
       return response;
     })
     .catch((err: unknown) => {
-      setLastDataEncoderFailure(err);
-      if (type === 'decode') {
-        return payloads;
-      } else {
-        throw err;
+      if (type !== 'download') {
+        setLastDataEncoderFailure(err);
       }
+      throw err;
     });
 
   return decoderResponse;
@@ -118,4 +121,13 @@ export async function encodePayloadsWithCodec({
   payloads: PotentialPayloads;
 }): Promise<Payloads> {
   return codeServerRequest({ type: 'encode', payloads });
+}
+
+export async function downloadExternalPayloadWithCodec(
+  payload: Payload,
+): Promise<Payloads> {
+  return codeServerRequest({
+    type: 'download',
+    payloads: { payloads: [payload] },
+  });
 }

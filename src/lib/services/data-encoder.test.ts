@@ -1,13 +1,16 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('$lib/utilities/core-provider', () => ({
   getAccessToken: vi.fn().mockResolvedValue(''),
   getIdToken: vi.fn().mockResolvedValue(undefined),
 }));
 
+import { page } from '$app/state';
+
 import {
   codecEndpoint,
   includeCredentials,
+  overrideRemoteCodecConfiguration,
   passAccessToken,
 } from '$lib/stores/data-encoder-config';
 import { getAccessToken, getIdToken } from '$lib/utilities/core-provider';
@@ -20,11 +23,35 @@ const mockGetIdToken = vi.mocked(getIdToken);
 describe('Codec Server Requests for Decode and Encode', () => {
   const payloads = { payloads: [{}] };
 
+  beforeEach(() => {
+    overrideRemoteCodecConfiguration.set(true);
+  });
+
   afterEach(() => {
     codecEndpoint.set(null);
     passAccessToken.set(false);
     includeCredentials.set(false);
+    overrideRemoteCodecConfiguration.set(false);
     vi.clearAllMocks();
+  });
+
+  it('should preserve a route prefix if the user has one configured', async () => {
+    const mockFetch = vi.fn(async () => {
+      return {
+        json: () => Promise.resolve(payloads),
+      };
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    codecEndpoint.set('http://localcodecserver.com/prefix');
+    await codeServerRequest({
+      type: 'decode',
+      payloads,
+    });
+    expect(mockFetch).toBeCalledWith(
+      'http://localcodecserver.com/prefix/decode?preserveStorageRefs=true',
+      expect.any(Object),
+    );
   });
 
   it('should send a request and return decoded payloads', async () => {
@@ -43,7 +70,7 @@ describe('Codec Server Requests for Decode and Encode', () => {
     expect(response).toEqual(payloads);
   });
 
-  it('should return original payloads for decode on failure', async () => {
+  it('should throw an error for decode on failure', async () => {
     global.fetch = vi.fn(() =>
       Promise.resolve({
         ok: false,
@@ -53,11 +80,9 @@ describe('Codec Server Requests for Decode and Encode', () => {
     );
 
     codecEndpoint.set('http://localcodecserver.com');
-    const response = await codeServerRequest({
-      type: 'decode',
-      payloads,
-    });
-    expect(response).toEqual(payloads);
+    await expect(
+      codeServerRequest({ type: 'decode', payloads }),
+    ).rejects.toThrow();
   });
 
   it('should send a request and return encoded payloads', async () => {
@@ -108,10 +133,15 @@ describe('Codec Server Requests for Decode and Encode', () => {
 describe('codecPassAccessToken', () => {
   const payloads = { payloads: [{}] };
 
+  beforeEach(() => {
+    overrideRemoteCodecConfiguration.set(true);
+  });
+
   afterEach(() => {
     codecEndpoint.set(null);
     passAccessToken.set(false);
     includeCredentials.set(false);
+    overrideRemoteCodecConfiguration.set(false);
     vi.clearAllMocks();
   });
 
@@ -208,10 +238,15 @@ describe('codecPassAccessToken', () => {
 describe('codecIncludeCredentials', () => {
   const payloads = { payloads: [{}] };
 
+  beforeEach(() => {
+    overrideRemoteCodecConfiguration.set(true);
+  });
+
   afterEach(() => {
     codecEndpoint.set(null);
     passAccessToken.set(false);
     includeCredentials.set(false);
+    overrideRemoteCodecConfiguration.set(false);
     vi.clearAllMocks();
   });
 
@@ -254,5 +289,61 @@ describe('codecIncludeCredentials', () => {
     const fetchCall = vi.mocked(global.fetch).mock.calls[0];
     const requestOptions = fetchCall[1] as RequestInit;
     expect(requestOptions.credentials).toBeUndefined();
+  });
+});
+
+describe('download with namespace-level codec endpoint', () => {
+  // Regression test: the download button in payload-code-block.svelte was
+  // disabled when the browser-level $codecEndpoint store was empty, even
+  // though codeServerRequest correctly falls back to settings.codec.endpoint.
+  // These tests document the expected service-layer behaviour so a regression
+  // in data-encoder.ts would be caught immediately.
+  const payloads = { payloads: [{}] };
+  const namespaceEndpoint = 'http://namespace-codec.example.com';
+
+  beforeEach(() => {
+    // Browser store intentionally left empty — only namespace settings set.
+    codecEndpoint.set(null);
+    passAccessToken.set(false);
+    includeCredentials.set(false);
+    (page.data.settings as { codec: { endpoint: string } }).codec.endpoint =
+      namespaceEndpoint;
+  });
+
+  afterEach(() => {
+    (page.data.settings as { codec: { endpoint: string } }).codec.endpoint = '';
+    vi.clearAllMocks();
+  });
+
+  it('should use the namespace endpoint for download when browser store is not configured', async () => {
+    global.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(payloads),
+      } as Response),
+    );
+
+    await codeServerRequest({ type: 'download', payloads });
+
+    expect(vi.mocked(global.fetch)).toHaveBeenCalledWith(
+      `${namespaceEndpoint}/download?preserveStorageRefs=true`,
+      expect.any(Object),
+    );
+  });
+
+  it('should use the namespace endpoint for decode when browser store is not configured', async () => {
+    global.fetch = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve(payloads),
+      } as Response),
+    );
+
+    await codeServerRequest({ type: 'decode', payloads });
+
+    expect(vi.mocked(global.fetch)).toHaveBeenCalledWith(
+      `${namespaceEndpoint}/decode?preserveStorageRefs=true`,
+      expect.any(Object),
+    );
   });
 });

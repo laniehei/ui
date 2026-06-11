@@ -1,6 +1,6 @@
 {
   "name": "@temporalio/ui",
-  "version": "2.49.1",
+  "version": "2.51.0",
   "engines": {
     "pnpm": ">=10.10.0",
     "node": ">=22.14.0"
@@ -12,16 +12,6 @@
     "ui",
     ""
   ],
-  "exports": {
-    "./*.svelte": {
-      "types": "./dist/*.svelte.d.ts",
-      "svelte": "./dist/*.svelte"
-    },
-    "./*": {
-      "types": "./dist/*.d.ts",
-      "import": "./dist/*.js"
-    }
-  },
   "files": [
     "dist/**/*",
     "!dist/**/*.test.*",
@@ -67,6 +57,7 @@
     "package:patch": "pnpm version patch && svelte-package",
     "package:minor": "pnpm version minor && svelte-package",
     "package:major": "pnpm version major && svelte-package",
+    "prepack": "svelte-package && node scripts/generate-exports.mjs",
     "stories:dev": "storybook dev -p 6006",
     "stories:build": "storybook build",
     "stories:test": "test-storybook --index-json",
@@ -77,7 +68,8 @@
     "audit:tailwind": "esno scripts/audit-tailwind-colors",
     "audit:holocene-props": "esno scripts/generate-holocene-props.ts",
     "validate:versions": "./scripts/validate-versions.sh",
-    "knip": "knip"
+    "knip": "knip",
+    "a11y:manifest:test": "node scripts/a11y/manifest.test.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.7",
@@ -140,14 +132,15 @@
     "@sveltejs/adapter-vercel": "^6.3.2",
     "@sveltejs/kit": "2.57.1",
     "@sveltejs/vite-plugin-svelte": "^6.2.4",
-    "@temporalio/activity": "1.16.0",
-    "@temporalio/client": "1.16.0",
-    "@temporalio/common": "1.16.0",
-    "@temporalio/proto": "1.16.0",
-    "@temporalio/worker": "1.16.0",
-    "@temporalio/workflow": "1.16.0",
+    "@temporalio/activity": "1.17.2",
+    "@temporalio/client": "1.17.2",
+    "@temporalio/common": "1.17.2",
+    "@temporalio/proto": "1.17.2",
+    "@temporalio/worker": "1.17.2",
+    "@temporalio/workflow": "1.17.2",
     "@types/cors": "^2.8.13",
     "@types/express": "^4.17.17",
+    "@types/js-yaml": "^4.0.9",
     "@types/json-bigint": "^1.0.1",
     "@types/node": "^18.15.3",
     "@types/tar-fs": "^2.0.4",
@@ -174,6 +167,7 @@
     "globals": "^17.2.0",
     "helmet": "^8.1.0",
     "husky": "^8.0.3",
+    "js-yaml": "^4.1.0",
     "jsdom": "^20.0.3",
     "knip": "^6.7.0",
     "lint-staged": "^16.2.7",
@@ -198,7 +192,7 @@
     "stylelint": "^17.0.0",
     "stylelint-config-recommended": "^18.0.0",
     "stylelint-config-standard": "^40.0.0",
-    "svelte": "5.55.1",
+    "svelte": "5.55.7",
     "svelte-check": "^4.1.5",
     "svelte-preprocess": "^6.0.3",
     "svelte2tsx": "^0.7.35",
@@ -222,7 +216,7 @@
   },
   "pnpm": {
     "overrides": {
-      "devalue": "5.6.4",
+      "devalue": "5.8.1",
       "axios": "1.15.2",
       "cookie": "0.7.0",
       "micromatch": "^4.0.8",
@@ -258,5 +252,16 @@
       "svelte-preprocess"
     ]
   },
-  "packageManager": "pnpm@10.10.0"
+  "packageManager": "pnpm@10.10.0",
+  "exports": {
+    "./_": "Wildcard entries below are replaced with explicit paths by scripts/generate-exports.mjs during prepack",
+    "./*.svelte": {
+      "types": "./dist/*.svelte.d.ts",
+      "svelte": "./dist/*.svelte"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "import": "./dist/*.js"
+    }
+  }
 }

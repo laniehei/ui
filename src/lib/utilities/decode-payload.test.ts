@@ -23,6 +23,7 @@ import {
   codecEndpoint,
   includeCredentials,
   lastDataEncoderStatus,
+  overrideRemoteCodecConfiguration,
   resetLastDataEncoderSuccess,
 } from '../stores/data-encoder-config';
 
@@ -260,10 +261,15 @@ describe('parsePayloadAttributes', () => {
 });
 
 describe('decodeEventAttributes', () => {
+  beforeEach(() => {
+    overrideRemoteCodecConfiguration.set(true);
+  });
+
   afterEach(() => {
     resetLastDataEncoderSuccess();
     codecEndpoint.set(null);
     includeCredentials.set(false);
+    overrideRemoteCodecConfiguration.set(false);
     vi.clearAllMocks();
   });
 
@@ -307,12 +313,14 @@ describe('decodeEventAttributes', () => {
     });
 
     codecEndpoint.set('http://localhost:1337');
-    const convertedPayload = await decodeEventAttributes(
-      parseWithBigInt(stringifyWithBigInt(workflowStartedEvent)),
-    );
+    try {
+      await decodeEventAttributes(
+        parseWithBigInt(stringifyWithBigInt(workflowStartedEvent)),
+      );
+    } catch {
+      // expected to throw on codec failure
+    }
 
-    const decodedPayload = parsePayloadAttributes(convertedPayload);
-    expect(decodedPayload).toEqual(noRemoteDataConverterWorkflowStartedEvent);
     const dataConverterStatus = get(lastDataEncoderStatus);
     expect(dataConverterStatus).toEqual('error');
   });
@@ -373,6 +381,7 @@ describe('getEventAttributes', () => {
     resetLastDataEncoderSuccess();
     resetLastDataConverterSuccess();
     codecEndpoint.set(null);
+    overrideRemoteCodecConfiguration.set(false);
   });
   it('Should convert a payload through data-converter and set the success status when the endpoint is set locally and the endpoint connects', async () => {
     vi.stubGlobal('fetch', async () => {
@@ -382,6 +391,7 @@ describe('getEventAttributes', () => {
     });
 
     codecEndpoint.set('http://localhost:1337');
+    overrideRemoteCodecConfiguration.set(true);
 
     const decodedPayload = await getEventAttributes(
       parseWithBigInt(stringifyWithBigInt(workflowStartedHistoryEvent)),

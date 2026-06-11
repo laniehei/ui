@@ -72,8 +72,8 @@
     class: className = undefined,
     editable = false,
     copyable = true,
-    copyIconTitle = '',
-    copySuccessIconTitle = '',
+    copyIconTitle = undefined,
+    copySuccessIconTitle = undefined,
     inline = false,
     testId = undefined,
     minHeight = undefined,
@@ -295,7 +295,9 @@
     ></div>
 
     {#snippet actions()}
-      {#if copyable && !hasHeader}
+      {#if headerActions}
+        {@render headerActions()}
+      {:else if copyable && !hasHeader}
         <CopyButton
           {copyIconTitle}
           {copySuccessIconTitle}
