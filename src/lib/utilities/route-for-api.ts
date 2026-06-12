@@ -196,6 +196,10 @@ export function pathForApi(
     'standalone-activities.count': `/namespaces/${parameters?.namespace}/activity-count`,
     'standalone-activity.cancel': `/namespaces/${parameters?.namespace}/activities/${parameters?.activityId}/cancel`,
     'standalone-activity.terminate': `/namespaces/${parameters?.namespace}/activities/${parameters?.activityId}/terminate`,
+    'standalone-activity.pause': `/namespaces/${parameters?.namespace}/activities/${parameters?.activityId}/pause`,
+    'standalone-activity.unpause': `/namespaces/${parameters?.namespace}/activities/${parameters?.activityId}/unpause`,
+    'standalone-activity.reset': `/namespaces/${parameters?.namespace}/activities/${parameters?.activityId}/reset`,
+    'standalone-activity.update-options': `/namespaces/${parameters?.namespace}/activities/${parameters?.activityId}/update-options`,
   };
 
   return getPath(routes[route]);
