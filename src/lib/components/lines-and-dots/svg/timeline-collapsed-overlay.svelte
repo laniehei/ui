@@ -1,8 +1,8 @@
 <script lang="ts">
   import { formatDistanceAbbreviated } from '$lib/utilities/format-time';
-  import type { TimelineScale } from '$lib/utilities/timeline-scale';
 
   import { TimelineConfig } from '../constants';
+  import type { TimelineScale } from '../timeline-graph/timeline-scale.svelte';
 
   type Props = {
     scale: TimelineScale;
@@ -13,7 +13,9 @@
   const { radius } = TimelineConfig;
   const ZIGZAG_HALF_WIDTH = 3;
 
-  const collapsedSegments = $derived(scale.segments.filter((s) => s.collapsed));
+  const collapsedSegments = $derived(
+    scale.segments.filter((s) => s.isCollapsed),
+  );
 
   const zigzagPath = (xStart: number, xEnd: number, height: number) => {
     const step = 6;
@@ -30,10 +32,10 @@
   };
 </script>
 
-{#each collapsedSegments as seg (seg.tStart)}
-  {@const labelX = (seg.xStart + seg.xEnd) / 2}
+{#each collapsedSegments as seg (seg.startTimeMs)}
+  {@const labelX = (seg.startPx + seg.endPx) / 2}
   {@const labelY = timelineHeight + radius * 2}
-  {@const half = Math.min(ZIGZAG_HALF_WIDTH, (seg.xEnd - seg.xStart) / 4)}
+  {@const half = Math.min(ZIGZAG_HALF_WIDTH, (seg.endPx - seg.startPx) / 4)}
   {@const d = zigzagPath(labelX - half, labelX + half, timelineHeight)}
   <path
     class="zigzag-halo"
@@ -52,8 +54,8 @@
     y={labelY + 3}
   >
     {formatDistanceAbbreviated({
-      start: new Date(seg.tStart),
-      end: new Date(seg.tEnd),
+      start: new Date(seg.startTimeMs),
+      end: new Date(seg.endTimeMs),
     })} skipped
   </text>
 {/each}

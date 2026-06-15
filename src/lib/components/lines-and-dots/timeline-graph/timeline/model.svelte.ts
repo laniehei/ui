@@ -28,7 +28,7 @@ export class Timeline {
   #getWorkflow: () => WorkflowExecution;
   #getEventGroups: () => EventGroups;
   #getCurrentTimeMs: () => number;
-  // #getDurationThresholdRatio: () => number;
+  #getDurationThresholdRatio: () => number;
 
   constructor({
     getFullEventHistory,
@@ -75,11 +75,29 @@ export class Timeline {
     });
   });
 
+  isTimeSegmentCollapsible(segment: TimeSegment): boolean {
+    if (segment.kind !== 'inactive') return false;
+
+    const totalDurationMs = this.workflowTimespan.durationMs;
+    if (totalDurationMs <= 0) {
+      return false;
+    }
+
+    return Boolean(
+      segment.timespan.durationMs / totalDurationMs >=
+      this.#getDurationThresholdRatio(),
+    );
+  }
+
   isTimeSegmentCollapsed(segmentKey: TimeSegmentKey): boolean {
     return this.#collapsedTimeSegmentKeys.has(segmentKey);
   }
 
   toggleTimeSegment(segmentKey: TimeSegmentKey): void {
-    this.#collapsedTimeSegmentKeys.has(segmentKey);
+    if (this.#collapsedTimeSegmentKeys.has(segmentKey)) {
+      this.#collapsedTimeSegmentKeys.delete(segmentKey);
+    } else {
+      this.#collapsedTimeSegmentKeys.add(segmentKey);
+    }
   }
 }
