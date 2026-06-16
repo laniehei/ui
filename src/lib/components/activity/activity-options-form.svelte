@@ -13,6 +13,7 @@
     fromDurationToNumber,
     fromNumberToDuration,
   } from '$lib/utilities/format-time';
+  import { has } from '$lib/utilities/has';
 
   type Props = {
     open: boolean;
@@ -28,7 +29,7 @@
     onSave,
   }: Props = $props();
 
-  let taskQueue = $state(initialOptions?.taskQueue?.name);
+  let taskQueue = $state(initialOptions?.taskQueue?.name ?? '');
   let scheduleToCloseTimeout = $state(
     fromDurationToNumber(String(initialOptions?.scheduleToCloseTimeout)),
   );
@@ -41,9 +42,11 @@
   let heartbeatTimeout = $state(
     fromDurationToNumber(String(initialOptions?.heartbeatTimeout)),
   );
-  let maximumAttempts = $state(initialOptions?.retryPolicy?.maximumAttempts);
+  let maximumAttempts = $state(
+    initialOptions?.retryPolicy?.maximumAttempts ?? 0,
+  );
   let backoffCoefficient = $state(
-    initialOptions?.retryPolicy?.backoffCoefficient,
+    initialOptions?.retryPolicy?.backoffCoefficient ?? 0,
   );
   let initialInterval = $state(
     fromDurationToNumber(String(initialOptions?.retryPolicy?.initialInterval)),
@@ -83,7 +86,7 @@
       console.error('Error updating activity options:', error);
       toaster.push({
         variant: 'error',
-        message: `Options for Activity ${activityId} have been failed to update: ${error?.message}`,
+        message: `Options for Activity ${activityId} have been failed to update: ${has(error, 'message') ? error.message : translate('common.unknown-error')}`,
         duration: 5000,
       });
     } finally {

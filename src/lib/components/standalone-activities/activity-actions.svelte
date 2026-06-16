@@ -58,7 +58,8 @@
     standaloneActivityWriteActionsDisabled(page),
   );
 
-  const { activityId, runId } = $derived(activityExecutionInfo);
+  const activityId = $derived(activityExecutionInfo.activityId ?? '');
+  const runId = $derived(activityExecutionInfo.runId ?? '');
 
   const refresh = () => poller.fetchOnce();
 
@@ -178,10 +179,11 @@
           goto(
             routeForStartStandaloneActivity({
               namespace,
-              activityId: activityExecutionInfo.activityId,
-              runId: activityExecutionInfo.runId ?? undefined,
-              activityType: activityExecutionInfo.activityType.name,
-              taskQueue: activityExecutionInfo.taskQueue,
+              activityId: activityId || undefined,
+              runId: runId || undefined,
+              activityType:
+                activityExecutionInfo.activityType?.name ?? undefined,
+              taskQueue: activityExecutionInfo.taskQueue ?? undefined,
               startToCloseTimeout: activityExecutionInfo.startToCloseTimeout,
               scheduleToCloseTimeout:
                 activityExecutionInfo.scheduleToCloseTimeout,
