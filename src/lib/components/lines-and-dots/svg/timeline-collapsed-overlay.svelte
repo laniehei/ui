@@ -7,14 +7,16 @@
   type Props = {
     scale: TimelineScale;
     timelineHeight: number;
+    readOnly?: boolean;
+    onToggle: (segmentKey: string) => void;
   };
-  let { scale, timelineHeight }: Props = $props();
+  let { scale, timelineHeight, readOnly = false, onToggle }: Props = $props();
 
   const { radius } = TimelineConfig;
   const ZIGZAG_HALF_WIDTH = 3;
 
-  const collapsedSegments = $derived(
-    scale.segments.filter((s) => s.isCollapsed),
+  const collapsibleSegments = $derived(
+    scale.segments.filter((s) => s.isCollapsible),
   );
 
   const zigzagPath = (xStart: number, xEnd: number, height: number) => {
@@ -30,34 +32,74 @@
     }
     return d;
   };
+
+  const handleToggle = (segmentKey: string) => {
+    if (readOnly) return;
+    onToggle(segmentKey);
+  };
 </script>
 
-{#each collapsedSegments as seg (seg.startTimeMs)}
+{#each collapsibleSegments as seg (seg.key)}
   {@const labelX = (seg.startPx + seg.endPx) / 2}
   {@const labelY = timelineHeight + radius * 2}
-  {@const half = Math.min(ZIGZAG_HALF_WIDTH, (seg.endPx - seg.startPx) / 4)}
-  {@const d = zigzagPath(labelX - half, labelX + half, timelineHeight)}
-  <path
-    class="zigzag-halo"
-    {d}
-    fill="none"
-    stroke-width="3"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-  />
-  <path class="zigzag" {d} fill="none" stroke-width="1" />
-  <text
-    class="zigzag-label"
-    font-size="10"
-    transform="rotate(90, {labelX}, {labelY})"
-    x={labelX - radius}
-    y={labelY + 3}
-  >
-    {formatDistanceAbbreviated({
-      start: new Date(seg.startTimeMs),
-      end: new Date(seg.endTimeMs),
-    })} skipped
-  </text>
+  {#if seg.isCollapsed}
+    {@const half = Math.min(ZIGZAG_HALF_WIDTH, (seg.endPx - seg.startPx) / 4)}
+    {@const d = zigzagPath(labelX - half, labelX + half, timelineHeight)}
+    <path
+      class="zigzag-halo"
+      {d}
+      fill="none"
+      stroke-width="3"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path class="zigzag" {d} fill="none" stroke-width="1" />
+    <text
+      class="zigzag-label"
+      font-size="10"
+      transform="rotate(90, {labelX}, {labelY})"
+      x={labelX - radius}
+      y={labelY + 3}
+    >
+      {formatDistanceAbbreviated({
+        start: new Date(seg.startTimeMs),
+        end: new Date(seg.endTimeMs),
+      })} skipped
+    </text>
+    {#if !readOnly}
+      <rect
+        role="button"
+        tabindex="0"
+        aria-label={`Expand ${formatDistanceAbbreviated({
+          start: new Date(seg.startTimeMs),
+          end: new Date(seg.endTimeMs),
+        })} of skipped time`}
+        class="toggle-handle"
+        x={seg.startPx}
+        y={0}
+        width={seg.endPx - seg.startPx}
+        height={timelineHeight}
+        onclick={() => handleToggle(seg.key)}
+        onkeypress={() => handleToggle(seg.key)}
+      />
+    {/if}
+  {:else if !readOnly}
+    <rect
+      role="button"
+      tabindex="0"
+      aria-label={`Collapse ${formatDistanceAbbreviated({
+        start: new Date(seg.startTimeMs),
+        end: new Date(seg.endTimeMs),
+      })} of idle time`}
+      class="toggle-handle"
+      x={seg.startPx}
+      y={0}
+      width={seg.endPx - seg.startPx}
+      height={timelineHeight}
+      onclick={() => handleToggle(seg.key)}
+      onkeypress={() => handleToggle(seg.key)}
+    />
+  {/if}
 {/each}
 
 <style lang="postcss">
@@ -74,5 +116,18 @@
     @apply fill-current;
 
     opacity: 0.7;
+  }
+
+  .toggle-handle {
+    fill: currentColor;
+    cursor: pointer;
+    opacity: 0;
+    outline: none;
+    transition: opacity 0.1s ease-in-out;
+  }
+
+  .toggle-handle:hover,
+  .toggle-handle:focus-visible {
+    opacity: 0.25;
   }
 </style>

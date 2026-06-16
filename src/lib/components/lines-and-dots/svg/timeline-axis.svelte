@@ -3,22 +3,25 @@
   import { formatDistanceAbbreviated } from '$lib/utilities/format-time';
 
   import { TimelineConfig } from '../constants';
+  import type { TimelineScale } from '../timeline-graph/timeline-scale.svelte';
 
   import Line from './line.svelte';
 
   type Props = {
     x1: number;
     x2: number;
+    gutter: number;
     timelineHeight: number;
     startTime: string | Timestamp;
-    duration: number;
+    scale: TimelineScale;
   };
   let {
     x1 = 0,
     x2 = 1000,
+    gutter = 0,
     timelineHeight = 1000,
     startTime,
-    duration,
+    scale,
   }: Props = $props();
 
   const { radius } = TimelineConfig;
@@ -26,6 +29,16 @@
 
   const distance = $derived(x2 - x1);
   const tickDistance = $derived(distance / ticks);
+
+  const startMs = $derived(scale.unproject(x1 - gutter));
+  const endMs = $derived(scale.unproject(x2 - gutter));
+  const includeMilliseconds = $derived((endMs - startMs) / ticks < 1000);
+
+  const isWithinCollapsedSegment = (px: number): boolean =>
+    scale.segments.some(
+      (segment) =>
+        segment.isCollapsed && px > segment.startPx && px < segment.endPx,
+    );
 </script>
 
 <Line
@@ -36,15 +49,13 @@
 {#each Array(ticks) as _, i}
   {@const tickX = x1 + i * tickDistance}
   {@const tickY = timelineHeight + radius * 2}
-  {#if i !== 0}
+  {#if i !== 0 && !isWithinCollapsedSegment(tickX - gutter)}
     <Line
       strokeWidth={0.5}
       startPoint={[tickX, 0]}
       endPoint={[tickX, timelineHeight]}
       strokeDasharray="2"
     />
-  {/if}
-  {#if i !== 0}
     <text
       fill="#fff"
       font-size="12"
@@ -54,10 +65,8 @@
     >
       {formatDistanceAbbreviated({
         start: startTime,
-        end: new Date(
-          new Date(startTime.toString()).getTime() + (duration / ticks) * i,
-        ),
-        includeMilliseconds: duration / ticks < 1000,
+        end: new Date(scale.unproject(tickX - gutter)),
+        includeMilliseconds,
       })}
     </text>
   {/if}

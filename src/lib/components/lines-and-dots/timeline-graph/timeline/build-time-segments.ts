@@ -80,7 +80,9 @@ export function buildTimeSegments({
   if (cursorMs < workflowTimespan.endTimeMs) {
     timeSegments.push({
       kind: 'inactive',
-      timespan: new Timespan(cursorMs, workflowTimespan.endTimeMs),
+      timespan: new Timespan(cursorMs, workflowTimespan.endTimeMs, {
+        endUnbounded: workflowTimespan.endUnbounded,
+      }),
     });
   }
 

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { Timestamp } from '@temporalio/common';
   import { cva } from 'class-variance-authority';
   import { onMount } from 'svelte';
 
@@ -13,7 +12,7 @@
     decodeLocalActivity,
     getLocalActivityMarkerEvent,
   } from '$lib/utilities/decode-local-activity';
-  import { getMillisecondDuration } from '$lib/utilities/format-time';
+  import type { ValidTime } from '$lib/utilities/format-time';
   import type { SummaryAttribute } from '$lib/utilities/get-single-attribute-for-event';
   import { getEventClassificationLabel } from '$lib/utilities/get-status-label';
   import {
@@ -34,18 +33,16 @@
   type Props = {
     y: number;
     group: EventGroup;
-    startTime: string | Timestamp;
-    endTime: string | Date | number;
     canvasWidth: number;
+    project: (time: ValidTime | undefined | null) => number;
     readOnly: boolean;
   };
 
   let {
     y = 0,
     group,
-    startTime,
-    endTime,
     canvasWidth,
+    project,
     readOnly = false,
   }: Props = $props();
 
@@ -85,38 +82,13 @@
     }
   });
 
-  const getDistancePointsAndPositions = (
-    endTime: string | Date | number,
-    timelineWidth: number,
-    y: number,
-  ) => {
-    const workflowDistance = getMillisecondDuration({
-      start: startTime,
-      end: endTime,
-      onlyUnderSecond: false,
-    });
-
-    const points = group.eventList.map((event) => {
-      const distance = getMillisecondDuration({
-        start: startTime,
-        end: event.eventTime,
-        onlyUnderSecond: false,
-      });
-
-      const ratio = distance / workflowDistance;
-      return Math.round(ratio * timelineWidth) + gutter;
-    });
+  const getDistancePointsAndPositions = (timelineWidth: number, y: number) => {
+    const points = group.eventList.map((event) =>
+      Math.round(project(event.eventTime)),
+    );
 
     if (pauseTime) {
-      const distance = getMillisecondDuration({
-        start: startTime,
-        end: pauseTime,
-        onlyUnderSecond: false,
-      });
-
-      const ratio = distance / workflowDistance;
-      const pausePoint = Math.round(ratio * timelineWidth) + gutter;
-      points.push(pausePoint);
+      points.push(Math.round(project(pauseTime)));
     }
 
     const { textAnchor, textIndex, textPosition, backdrop } =
@@ -132,7 +104,7 @@
   };
 
   const { points, textAnchor, textIndex, textPosition, backdrop } = $derived(
-    getDistancePointsAndPositions(endTime, timelineWidth, y),
+    getDistancePointsAndPositions(timelineWidth, y),
   );
 
   const onClick = () => {

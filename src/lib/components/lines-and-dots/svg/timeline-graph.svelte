@@ -6,14 +6,19 @@
   import { eventStatusFilter } from '$lib/stores/filters';
   import type { WorkflowExecution } from '$lib/types/workflows';
   import { isWorkflowDelayed } from '$lib/utilities/delayed-workflows';
+  import { type ValidTime, validTimeToDate } from '$lib/utilities/format-time';
   import { getFailedOrPendingGroups } from '$lib/utilities/get-failed-or-pending';
 
   import { TimelineConfig } from '../constants';
   import EndTimeInterval from '../end-time-interval.svelte';
+  import { Timeline } from '../timeline-graph/timeline/model.svelte';
+  import { TimelineScale } from '../timeline-graph/timeline-scale.svelte';
+  import { ViewportModel } from '../timeline-graph/viewport/model.svelte';
 
   import GroupDetailsRow from './group-details-row.svelte';
   import Line from './line.svelte';
   import TimelineAxis from './timeline-axis.svelte';
+  import TimelineCollapsedOverlay from './timeline-collapsed-overlay.svelte';
   import TimelineGraphRow from './timeline-graph-row.svelte';
   import WorkflowRow from './workflow-row.svelte';
 
@@ -41,6 +46,36 @@
 
   let canvasWidth = $state(0);
   let scrollY = $state(0);
+
+  const timelineWidth = $derived(canvasWidth - 2 * gutter);
+
+  const timeline = new Timeline({
+    getFullEventHistory: () => $fullEventHistory,
+    getWorkflow: () => workflow,
+    getEventGroups: () => groups,
+    getCurrentTimeMs: () => Date.now(),
+  });
+
+  const viewport = new ViewportModel({ startTimeMs: 0, endTimeMs: 0 });
+  const scale = new TimelineScale({ timeline, viewport });
+
+  $effect(() => {
+    viewport.setSize(timelineWidth, 0);
+  });
+
+  const projectX = (time: ValidTime | undefined | null): number => {
+    if (!time) return gutter;
+    return scale.project(validTimeToDate(time).getTime()) + gutter;
+  };
+
+  const toggleSegment = (segmentKey: string) => {
+    const segment = timeline.segments.find(
+      (s) => s.timespan.key === segmentKey,
+    );
+    if (segment) {
+      timeline.toggleTimeSegment(segment);
+    }
+  };
 
   const expandedGroupHeight = $derived(readOnly ? 0 : $activeGroupHeight);
   const filteredGroups = $derived(
@@ -90,13 +125,7 @@
   style={viewportHeight ? `max-height: ${viewportHeight}px;` : ''}
   onscroll={handleScroll}
 >
-  <EndTimeInterval
-    {workflow}
-    {startTime}
-    let:endTime
-    let:duration
-    let:currentTime
-  >
+  <EndTimeInterval {workflow} {startTime} let:endTime let:currentTime>
     <div
       class="pointer-events-none sticky top-[120px]"
       class:invisible={!!$activeGroups.length}
@@ -132,9 +161,10 @@
       <TimelineAxis
         x1={gutter - radius / 4}
         x2={canvasWidth - gutter + radius / 4}
+        {gutter}
         {timelineHeight}
         {startTime}
-        duration={duration ?? 0}
+        {scale}
       />
       <WorkflowRow {workflow} y={height} length={canvasWidth} />
       {#each filteredGroups as group, index (group.id)}
@@ -145,12 +175,22 @@
               {y}
               {group}
               {canvasWidth}
-              {startTime}
-              {endTime}
+              project={projectX}
               {readOnly}
             />
           {/key}
         {/if}
+      {/each}
+      <g transform="translate({gutter}, 0)">
+        <TimelineCollapsedOverlay
+          {scale}
+          {timelineHeight}
+          {readOnly}
+          onToggle={toggleSegment}
+        />
+      </g>
+      {#each filteredGroups as group, index (group.id)}
+        {@const y = (index + 2) * height + activeGroupsHeightAboveGroup(index)}
         {#if !readOnly && $activeGroups.includes(group.id)}
           <GroupDetailsRow
             y={y + 1.33 * radius}

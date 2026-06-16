@@ -1,22 +1,49 @@
 import { type ValidTime, validTimeToDate } from '$lib/utilities/format-time';
 
+const UNBOUNDED_KEY = 'unbounded';
+
 export type TimespanLike = { start: ValidTime; end: ValidTime };
+
+export interface TimespanBounds {
+  startUnbounded?: boolean;
+  endUnbounded?: boolean;
+}
 
 export class Timespan {
   #startTimeMs: number;
   #endTimeMs: number;
+  #startUnbounded: boolean;
+  #endUnbounded: boolean;
 
-  constructor(startTimeMs: number, endTimeMs: number) {
+  constructor(
+    startTimeMs: number,
+    endTimeMs: number,
+    bounds: TimespanBounds = {},
+  ) {
     if (startTimeMs > endTimeMs) {
       throw new RangeError('Start time cannot come after end time');
     }
 
     this.#startTimeMs = startTimeMs;
     this.#endTimeMs = endTimeMs;
+    this.#startUnbounded = bounds.startUnbounded ?? false;
+    this.#endUnbounded = bounds.endUnbounded ?? false;
   }
 
   get key(): string {
-    return `${this.startTimeMs}-${this.endTimeMs}`;
+    const start = this.#startUnbounded
+      ? UNBOUNDED_KEY
+      : String(this.#startTimeMs);
+    const end = this.#endUnbounded ? UNBOUNDED_KEY : String(this.#endTimeMs);
+    return `${start}-${end}`;
+  }
+
+  get startUnbounded(): boolean {
+    return this.#startUnbounded;
+  }
+
+  get endUnbounded(): boolean {
+    return this.#endUnbounded;
   }
 
   get durationMs(): number {
@@ -55,9 +82,9 @@ export class Timespan {
     return Math.min(Math.max(timeMs, this.startTimeMs), this.endTimeMs);
   }
 
-  static coerce(input: TimespanLike): Timespan {
+  static coerce(input: TimespanLike, bounds?: TimespanBounds): Timespan {
     const startDate = validTimeToDate(input.start);
     const endDate = validTimeToDate(input.end);
-    return new Timespan(startDate.getTime(), endDate.getTime());
+    return new Timespan(startDate.getTime(), endDate.getTime(), bounds);
   }
 }

@@ -2,14 +2,16 @@ import type { Timeline } from './timeline/model.svelte';
 import type { ViewportModel } from './viewport/model.svelte';
 
 export interface ScaledSegment {
+  key: string;
   startTimeMs: number;
   endTimeMs: number;
   startPx: number;
   endPx: number;
   isCollapsed: boolean;
+  isCollapsible: boolean;
 }
 
-const DEFAULT_COLLAPSED_WIDTH_PX = 24;
+const DEFAULT_COLLAPSED_WIDTH_PX = 48;
 
 export class TimelineScale {
   #timeline: Timeline;
@@ -64,6 +66,38 @@ export class TimelineScale {
 
     return last.endPx;
   }
+
+  unproject(px: number): number {
+    const segments = this.segments;
+    if (!segments.length) {
+      return 0;
+    }
+
+    const first = segments[0];
+    const last = segments[segments.length - 1];
+
+    if (px <= first.startPx) {
+      return first.startTimeMs;
+    }
+
+    if (px >= last.endPx) {
+      return last.endTimeMs;
+    }
+
+    for (const segment of segments) {
+      if (px > segment.endPx) {
+        continue;
+      }
+
+      const widthPx = segment.endPx - segment.startPx || 1;
+      const ratio = (px - segment.startPx) / widthPx;
+      return (
+        segment.startTimeMs + ratio * (segment.endTimeMs - segment.startTimeMs)
+      );
+    }
+
+    return last.endTimeMs;
+  }
 }
 
 function buildScaledSegments({
@@ -85,7 +119,7 @@ function buildScaledSegments({
   const collapsedBySegmentKey: Record<string, boolean> = {};
 
   for (const segment of segments) {
-    const isCollapsed = timeline.isTimeSegmentCollapsed(segment.timespan.key);
+    const isCollapsed = timeline.isTimeSegmentCollapsed(segment);
     collapsedBySegmentKey[segment.timespan.key] = isCollapsed;
 
     if (isCollapsed) {
@@ -110,11 +144,13 @@ function buildScaledSegments({
         : 0;
 
     scaled.push({
+      key: segment.timespan.key,
       startTimeMs: segment.timespan.startTimeMs,
       endTimeMs: segment.timespan.endTimeMs,
       startPx: cursorPx,
       endPx: cursorPx + segmentWidthPx,
       isCollapsed,
+      isCollapsible: timeline.isTimeSegmentCollapsible(segment),
     });
 
     cursorPx += segmentWidthPx;
