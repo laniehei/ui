@@ -1,6 +1,6 @@
-import { Timespan } from '../timespan';
+import { Timespan } from './timespan';
 
-export class ViewportModel {
+export class Viewport {
   startTimeMs = $state(0);
   endTimeMs = $state(0);
   widthPx = $state(0);

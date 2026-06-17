@@ -1,5 +1,5 @@
 import type { Timeline } from './timeline/model.svelte';
-import type { ViewportModel } from './viewport/model.svelte';
+import type { Viewport } from './viewport.svelte';
 
 export interface ScaledSegment {
   key: string;
@@ -15,12 +15,12 @@ const DEFAULT_COLLAPSED_WIDTH_PX = 48;
 
 export class TimelineScale {
   #timeline: Timeline;
-  #viewport: ViewportModel;
+  #viewport: Viewport;
   #getCollapsedPx: () => number;
 
   constructor(init: {
     timeline: Timeline;
-    viewport: ViewportModel;
+    viewport: Viewport;
     getCollapsedPx?: () => number;
   }) {
     this.#timeline = init.timeline;

@@ -13,7 +13,7 @@
   import EndTimeInterval from '../end-time-interval.svelte';
   import { Timeline } from '../timeline-graph/timeline/model.svelte';
   import { TimelineScale } from '../timeline-graph/timeline-scale.svelte';
-  import { ViewportModel } from '../timeline-graph/viewport/model.svelte';
+  import { Viewport } from '../timeline-graph/viewport.svelte';
 
   import GroupDetailsRow from './group-details-row.svelte';
   import Line from './line.svelte';
@@ -56,7 +56,7 @@
     getCurrentTimeMs: () => Date.now(),
   });
 
-  const viewport = new ViewportModel({ startTimeMs: 0, endTimeMs: 0 });
+  const viewport = new Viewport({ startTimeMs: 0, endTimeMs: 0 });
   const scale = new TimelineScale({ timeline, viewport });
 
   $effect(() => {
