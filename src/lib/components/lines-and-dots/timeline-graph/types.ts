@@ -1,4 +1,4 @@
-import type { Timespan } from '../timespan';
+import type { Timespan } from './timespan';
 
 export type TimeSegmentKey = string;
 

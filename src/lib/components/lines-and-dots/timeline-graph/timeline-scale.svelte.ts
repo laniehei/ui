@@ -1,4 +1,4 @@
-import type { Timeline } from './timeline/model.svelte';
+import type { Timeline } from './timeline.svelte';
 import type { Viewport } from './viewport.svelte';
 
 export interface ScaledSegment {

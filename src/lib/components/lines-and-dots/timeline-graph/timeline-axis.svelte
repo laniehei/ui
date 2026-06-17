@@ -3,9 +3,9 @@
   import { formatDistanceAbbreviated } from '$lib/utilities/format-time';
 
   import { TimelineConfig } from '../constants';
-  import type { TimelineScale } from '../timeline-graph/timeline-scale.svelte';
+  import Line from '../svg/line.svelte';
 
-  import Line from './line.svelte';
+  import type { TimelineScale } from './timeline-scale.svelte';
 
   type Props = {
     x1: number;

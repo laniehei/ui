@@ -11,15 +11,15 @@
 
   import { TimelineConfig } from '../constants';
   import EndTimeInterval from '../end-time-interval.svelte';
-  import { Timeline } from '../timeline-graph/timeline/model.svelte';
-  import { TimelineScale } from '../timeline-graph/timeline-scale.svelte';
-  import { Viewport } from '../timeline-graph/viewport.svelte';
+  import Line from '../svg/line.svelte';
 
   import GroupDetailsRow from './group-details-row.svelte';
-  import Line from './line.svelte';
   import TimelineAxis from './timeline-axis.svelte';
   import TimelineCollapsedOverlay from './timeline-collapsed-overlay.svelte';
   import TimelineGraphRow from './timeline-graph-row.svelte';
+  import { TimelineScale } from './timeline-scale.svelte';
+  import { Timeline } from './timeline.svelte';
+  import { Viewport } from './viewport.svelte';
   import WorkflowRow from './workflow-row.svelte';
 
   interface Props {

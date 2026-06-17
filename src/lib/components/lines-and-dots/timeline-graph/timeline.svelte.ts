@@ -1,4 +1,4 @@
-import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+import { SvelteSet } from 'svelte/reactivity';
 
 import type { EventGroups } from '$lib/models/event-groups/event-groups';
 import type { WorkflowEvents } from '$lib/types/events';
@@ -7,9 +7,9 @@ import { isNotNullish } from '$lib/utilities/array';
 import { isWorkflowDelayed } from '$lib/utilities/delayed-workflows';
 import { minDate } from '$lib/utilities/format-time';
 
-import { Timespan } from '../timespan';
-import { buildTimeSegments } from './build-time-segments';
+import { Timespan } from './timespan';
 import type { TimeSegment, TimeSegmentKey } from './types';
+import { buildTimeSegments } from './utils/build-time-segments';
 
 const DEFAULT_DURATION_THRESHOLD_RATIO = 0.2;
 

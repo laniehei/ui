@@ -4,8 +4,8 @@ import type {
 } from '$lib/models/event-groups/event-groups';
 import { maxDate, validTimeToDate } from '$lib/utilities/format-time';
 
-import type { TimeSegment } from './types';
 import { Timespan } from '../timespan';
+import type { TimeSegment } from '../types';
 
 function getGroupStartMs(group: EventGroup): number {
   return validTimeToDate(group.initialEvent.eventTime).getTime();

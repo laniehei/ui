@@ -2,7 +2,8 @@
   import { formatDistanceAbbreviated } from '$lib/utilities/format-time';
 
   import { TimelineConfig } from '../constants';
-  import type { TimelineScale } from '../timeline-graph/timeline-scale.svelte';
+
+  import type { TimelineScale } from './timeline-scale.svelte';
 
   type Props = {
     scale: TimelineScale;
@@ -64,7 +65,7 @@
       {formatDistanceAbbreviated({
         start: new Date(seg.startTimeMs),
         end: new Date(seg.endTimeMs),
-      })} skipped
+      })}
     </text>
     {#if !readOnly}
       <rect

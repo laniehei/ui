@@ -25,10 +25,9 @@
     TimelineConfig,
     timelineTextPosition,
   } from '../constants';
-
-  import Dot from './dot.svelte';
-  import Line from './line.svelte';
-  import Text from './text.svelte';
+  import Dot from '../svg/dot.svelte';
+  import Line from '../svg/line.svelte';
+  import Text from '../svg/text.svelte';
 
   type Props = {
     y: number;

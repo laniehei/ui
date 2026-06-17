@@ -4,7 +4,7 @@
 
   import EventHistoryLegend from '$lib/components/lines-and-dots/event-history-legend.svelte';
   import EventTypeFilter from '$lib/components/lines-and-dots/event-type-filter.svelte';
-  import TimelineGraph from '$lib/components/lines-and-dots/svg/timeline-graph.svelte';
+  import TimelineGraph from '$lib/components/lines-and-dots/timeline-graph/timeline-graph.svelte';
   import WorkflowError from '$lib/components/lines-and-dots/workflow-error.svelte';
   import DownloadEventHistoryModal from '$lib/components/workflow/download-event-history-modal.svelte';
   import InputAndResults from '$lib/components/workflow/input-and-results.svelte';
