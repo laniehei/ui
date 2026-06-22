@@ -3,20 +3,32 @@ import type {
   EventGroups,
 } from '$lib/models/event-groups/event-groups';
 import { maxDate, validTimeToDate } from '$lib/utilities/format-time';
+import { isNotNullish, isNullish } from '$lib/utilities/type-predicates';
 
 import { Timespan } from '../timespan';
 import type { TimeSegment } from '../types';
 
-function getGroupStartMs(group: EventGroup): number {
-  return validTimeToDate(group.initialEvent.eventTime).getTime();
+function getGroupStartMs(group: EventGroup): number | null {
+  const { eventTime } = group.initialEvent;
+  if (isNullish(eventTime)) {
+    return null;
+  }
+
+  return validTimeToDate(eventTime).getTime();
 }
 
 function getGroupEndMs(group: EventGroup, pendingTimestampMs: number): number {
-  if (group.isPending) {
-    return maxDate(pendingTimestampMs, group.lastEvent.eventTime).getTime();
+  const { eventTime } = group.lastEvent;
+
+  if (isNullish(eventTime)) {
+    return pendingTimestampMs;
   }
 
-  return validTimeToDate(group.lastEvent.eventTime).getTime();
+  if (group.isPending) {
+    return maxDate(pendingTimestampMs, eventTime).getTime();
+  }
+
+  return validTimeToDate(eventTime).getTime();
 }
 
 export function buildTimeSegments({
@@ -28,11 +40,17 @@ export function buildTimeSegments({
 }): TimeSegment[] {
   const sortedGroupTimespans: Timespan[] = eventGroups
     .map((group) => {
+      const startMs = getGroupStartMs(group);
+      if (isNullish(startMs)) {
+        return null;
+      }
+
       return new Timespan(
-        getGroupStartMs(group),
+        startMs,
         getGroupEndMs(group, workflowTimespan.endTimeMs),
       );
     })
+    .filter(isNotNullish)
     .sort((a, b) => a.startTimeMs - b.startTimeMs);
 
   const timeSegments: TimeSegment[] = [];

@@ -3,9 +3,9 @@ import { SvelteSet } from 'svelte/reactivity';
 import type { EventGroups } from '$lib/models/event-groups/event-groups';
 import type { WorkflowEvents } from '$lib/types/events';
 import type { WorkflowExecution } from '$lib/types/workflows';
-import { isNotNullish } from '$lib/utilities/array';
 import { isWorkflowDelayed } from '$lib/utilities/delayed-workflows';
 import { minDate } from '$lib/utilities/format-time';
+import { isNotNullish } from '$lib/utilities/type-predicates';
 
 import { Timespan } from './timespan';
 import type { TimeSegment, TimeSegmentKey } from './types';
