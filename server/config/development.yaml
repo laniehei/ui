@@ -6,7 +6,7 @@ cors:
   allowOrigins:
     - "*"
   unsafeAllowAllOrigins: true
-refreshInterval: 1m
+refreshInterval: 24h
 defaultNamespace: default
 showTemporalSystemNamespace: false
 feedbackUrl:

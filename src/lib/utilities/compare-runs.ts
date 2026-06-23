@@ -4,7 +4,18 @@ import { toEventHistory } from '$lib/models/event-history';
 import type { LLMMetadata } from '$lib/models/event-history/get-event-llm-metadata';
 import { getGroupLLMMetadata } from '$lib/models/event-history/get-event-llm-metadata';
 import type { HistoryEvent, WorkflowEvents } from '$lib/types/events';
-import { decodePayload } from '$lib/utilities/decode-payload';
+function decodePayload(payload: unknown): unknown {
+  if (!payload || typeof payload !== 'object') return payload;
+  const p = payload as Record<string, unknown>;
+  if (typeof p.data === 'string') {
+    try {
+      return JSON.parse(atob(p.data));
+    } catch {
+      return atob(p.data);
+    }
+  }
+  return payload;
+}
 
 export type CompareStep = {
   activityName: string;
@@ -30,15 +41,19 @@ export type CompareSummary = {
 
 const getActivityResult = (group: EventGroup): string => {
   for (const event of group.eventList) {
-    const attrs = event.attributes;
+    const attrs = event.attributes as Record<string, unknown> | undefined;
     if (attrs?.result) {
       if (
         typeof attrs.result === 'object' &&
+        attrs.result !== null &&
         'payloads' in attrs.result &&
-        Array.isArray(attrs.result.payloads) &&
-        attrs.result.payloads.length > 0
+        Array.isArray((attrs.result as Record<string, unknown>).payloads) &&
+        ((attrs.result as Record<string, unknown>).payloads as unknown[])
+          .length > 0
       ) {
-        const decoded = decodePayload(attrs.result.payloads[0]);
+        const decoded = decodePayload(
+          ((attrs.result as Record<string, unknown>).payloads as unknown[])[0],
+        );
         return typeof decoded === 'string'
           ? decoded
           : JSON.stringify(decoded, null, 2);
