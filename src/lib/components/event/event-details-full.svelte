@@ -126,25 +126,8 @@
           data-testid="group-llm-details"
           class="rounded-lg border border-white/10 bg-slate-900 p-3 font-mono"
         >
-          <div class="mb-2 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              {#if llmMetadata.model}
-                <span
-                  class="rounded bg-blue-500/20 px-2 py-0.5 text-xs font-medium text-blue-300"
-                  >{llmMetadata.model}</span
-                >
-              {/if}
-              {#if llmMetadata.score != null}
-                <span
-                  class="rounded px-2 py-0.5 text-xs font-medium {llmMetadata.score >=
-                  0.8
-                    ? 'bg-green-500/20 text-green-300'
-                    : 'bg-yellow-500/20 text-yellow-300'}"
-                  >score {llmMetadata.score.toFixed(2)}</span
-                >
-              {/if}
-            </div>
-            {#if llmMetadata.traceUrl}
+          {#if llmMetadata.traceUrl}
+            <div class="mb-2 flex justify-end">
               <a
                 href={llmMetadata.traceUrl}
                 target="_blank"
@@ -165,9 +148,33 @@
                 >
                 View Trace
               </a>
-            {/if}
-          </div>
+            </div>
+          {/if}
           <div class="flex flex-wrap gap-2">
+            {#if llmMetadata.model}
+              <div class="rounded bg-white/5 px-2 py-1.5">
+                <div
+                  class="text-[10px] uppercase tracking-wider text-slate-500"
+                >
+                  Model
+                </div>
+                <div class="text-sm text-slate-200">
+                  {llmMetadata.model}
+                </div>
+              </div>
+            {/if}
+            {#if llmMetadata.agentType}
+              <div class="rounded bg-white/5 px-2 py-1.5">
+                <div
+                  class="text-[10px] uppercase tracking-wider text-slate-500"
+                >
+                  Agent Type
+                </div>
+                <div class="text-sm text-purple-300">
+                  {llmMetadata.agentType}
+                </div>
+              </div>
+            {/if}
             {#if llmMetadata.promptTokens}
               <div class="rounded bg-white/5 px-2 py-1.5">
                 <div
@@ -213,6 +220,22 @@
                 </div>
                 <div class="text-sm text-slate-200">
                   ${llmMetadata.cost.toFixed(4)}
+                </div>
+              </div>
+            {/if}
+            {#if llmMetadata.score != null}
+              <div class="rounded bg-white/5 px-2 py-1.5">
+                <div
+                  class="text-[10px] uppercase tracking-wider text-slate-500"
+                >
+                  Score
+                </div>
+                <div
+                  class="text-sm {llmMetadata.score >= 0.8
+                    ? 'text-green-300'
+                    : 'text-yellow-300'}"
+                >
+                  {llmMetadata.score.toFixed(2)}
                 </div>
               </div>
             {/if}

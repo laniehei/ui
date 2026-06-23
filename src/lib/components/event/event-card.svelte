@@ -2,7 +2,6 @@
   import { page } from '$app/state';
 
   import Timestamp from '$lib/components/timestamp.svelte';
-  import Badge from '$lib/holocene/badge.svelte';
   import CodeBlock from '$lib/holocene/code-block.svelte';
   import Copyable from '$lib/holocene/copyable/index.svelte';
   import Link from '$lib/holocene/link.svelte';
@@ -104,7 +103,7 @@
           {#if llmMetadata.model}
             <div class="flex items-center gap-2">
               <p class="min-w-32 text-sm text-secondary/80">Model</p>
-              <Badge type="subtle">{llmMetadata.model}</Badge>
+              <p class="text-sm">{llmMetadata.model}</p>
             </div>
           {/if}
           {#if llmMetadata.promptTokens}
