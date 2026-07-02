@@ -3,18 +3,7 @@
   import type { EventGroup } from '$lib/models/event-groups/event-groups';
   import { getGroupLLMMetadata } from '$lib/models/event-history/get-event-llm-metadata';
   import type { WorkflowEvent } from '$lib/types/events';
-  function decodePayload(payload: unknown): unknown {
-    if (!payload || typeof payload !== 'object') return payload;
-    const p = payload as Record<string, unknown>;
-    if (typeof p.data === 'string') {
-      try {
-        return JSON.parse(atob(p.data));
-      } catch {
-        return atob(p.data);
-      }
-    }
-    return payload;
-  }
+  import { decodePayloadsAndParseDataToJSON } from '$lib/utilities/decode-payload';
 
   import PendingActivityCard from '../workflow/pending-activity/pending-activity-card.svelte';
   import PendingNexusOperationCard from '../workflow/pending-nexus-operation/pending-nexus-operation-card.svelte';
@@ -36,53 +25,11 @@
 
   let showRawEvents = $state(false);
 
-  const decodeFirstPayload = (payloads: unknown): string => {
-    if (
-      payloads &&
-      typeof payloads === 'object' &&
-      'payloads' in payloads &&
-      Array.isArray((payloads as Record<string, unknown>).payloads)
-    ) {
-      const arr = (payloads as Record<string, unknown>).payloads as unknown[];
-      if (arr.length === 0) return '';
-      if (arr.length === 1) {
-        const decoded = decodePayload(arr[0]);
-        if (typeof decoded === 'string') return decoded;
-        if (decoded && typeof decoded === 'object')
-          return JSON.stringify(decoded, null, 2);
-        return String(decoded ?? '');
-      }
-      // Multiple arguments - decode all
-      const decoded = arr.map((p) => decodePayload(p));
+  const formatDecoded = (decoded: unknown): string => {
+    if (typeof decoded === 'string') return decoded;
+    if (decoded && typeof decoded === 'object')
       return JSON.stringify(decoded, null, 2);
-    }
-    if (typeof payloads === 'string') return payloads;
-    if (payloads && typeof payloads === 'object')
-      return JSON.stringify(payloads, null, 2);
-    return String(payloads ?? '');
-  };
-
-  const extractResultText = (result: unknown): string => {
-    if (
-      result &&
-      typeof result === 'object' &&
-      'payloads' in result &&
-      Array.isArray((result as Record<string, unknown>).payloads)
-    ) {
-      const decoded = decodePayload(
-        (result as Record<string, unknown>).payloads[0],
-      );
-      if (decoded && typeof decoded === 'object' && 'result' in decoded) {
-        return String((decoded as Record<string, unknown>).result);
-      }
-      if (typeof decoded === 'string') return decoded;
-      return JSON.stringify(decoded, null, 2);
-    }
-    if (result && typeof result === 'object' && 'result' in result) {
-      return String((result as Record<string, unknown>).result);
-    }
-    if (typeof result === 'string') return result;
-    return JSON.stringify(result, null, 2);
+    return String(decoded ?? '');
   };
 
   const scheduledEvent = $derived(
@@ -91,16 +38,55 @@
   const completedEvent = $derived(
     group?.eventList.find((e) => e.eventType === 'ActivityTaskCompleted'),
   );
-  const activityInput = $derived(
-    scheduledEvent?.attributes?.input
-      ? decodeFirstPayload(scheduledEvent.attributes.input)
-      : '',
-  );
-  const activityOutput = $derived(
-    completedEvent?.attributes?.result
-      ? extractResultText(completedEvent.attributes.result)
-      : '',
-  );
+
+  let activityInput = $state('');
+  let activityOutput = $state('');
+
+  $effect(() => {
+    const input = scheduledEvent?.attributes?.input;
+    if (input) {
+      decodePayloadsAndParseDataToJSON(input as { payloads: unknown[] })
+        .then((results) => {
+          if (results.length === 1) {
+            activityInput = formatDecoded(results[0]);
+          } else {
+            activityInput = JSON.stringify(results, null, 2);
+          }
+        })
+        .catch(() => {
+          activityInput = '';
+        });
+    } else {
+      activityInput = '';
+    }
+  });
+
+  $effect(() => {
+    const result = completedEvent?.attributes?.result;
+    if (result) {
+      decodePayloadsAndParseDataToJSON(result as { payloads: unknown[] })
+        .then((results) => {
+          const decoded = results[0];
+          if (
+            decoded &&
+            typeof decoded === 'object' &&
+            'result' in (decoded as Record<string, unknown>)
+          ) {
+            activityOutput = String(
+              (decoded as Record<string, unknown>).result,
+            );
+          } else {
+            activityOutput = formatDecoded(decoded);
+          }
+        })
+        .catch(() => {
+          activityOutput = '';
+        });
+    } else {
+      activityOutput = '';
+    }
+  });
+
   const activityType = $derived(
     scheduledEvent?.attributes?.activityType?.name ||
       scheduledEvent?.attributes?.activityType ||
@@ -142,12 +128,12 @@
           {/if}
           {#if llmMetadata.promptTokens}
             <Badge type="subtle"
-              >{llmMetadata.promptTokens.toLocaleString()} prompt</Badge
+              >{llmMetadata.promptTokens.toLocaleString()} prompt tokens</Badge
             >
           {/if}
           {#if llmMetadata.completionTokens}
             <Badge type="subtle"
-              >{llmMetadata.completionTokens.toLocaleString()} completion</Badge
+              >{llmMetadata.completionTokens.toLocaleString()} completion tokens</Badge
             >
           {/if}
           {#if llmMetadata.totalTokens}

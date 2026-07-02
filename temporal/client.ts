@@ -26,7 +26,7 @@ export const connect = async () => {
 
   const client = new Client({
     connection,
-    dataConverter: await getDataConverter(),
+    dataConverter: getDataConverter(),
   });
 
   return client;

@@ -12,18 +12,7 @@
   import { fetchRawEvents } from '$lib/services/events-service';
   import { fetchAllWorkflows } from '$lib/services/workflow-service';
   import type { WorkflowExecution } from '$lib/types/workflows';
-  function decodePayload(payload: unknown): unknown {
-    if (!payload || typeof payload !== 'object') return payload;
-    const p = payload as Record<string, unknown>;
-    if (typeof p.data === 'string') {
-      try {
-        return JSON.parse(atob(p.data));
-      } catch {
-        return atob(p.data);
-      }
-    }
-    return payload;
-  }
+  import { decodePayloadsAndParseDataToJSON } from '$lib/utilities/decode-payload';
   import {
     computeSessionSummary,
     type SessionSummary,
@@ -74,28 +63,30 @@
 
   // --- Payload helpers ---
 
-  const decodeAllPayloads = (payloads: unknown): string => {
+  const formatDecoded = (decoded: unknown): string => {
+    if (typeof decoded === 'string') return decoded;
+    if (decoded && typeof decoded === 'object')
+      return JSON.stringify(decoded, null, 2);
+    return String(decoded ?? '');
+  };
+
+  const decodeAllPayloads = async (payloads: unknown): Promise<string> => {
     if (
       payloads &&
       typeof payloads === 'object' &&
       'payloads' in payloads &&
       Array.isArray((payloads as Record<string, unknown>).payloads)
     ) {
-      const arr = (payloads as Record<string, unknown>).payloads as unknown[];
-      if (arr.length === 0) return '';
-      if (arr.length === 1) {
-        const decoded = decodePayload(arr[0]);
-        if (typeof decoded === 'string') return decoded;
-        if (decoded && typeof decoded === 'object')
-          return JSON.stringify(decoded, null, 2);
-        return String(decoded ?? '');
+      try {
+        const results = await decodePayloadsAndParseDataToJSON(
+          payloads as { payloads: unknown[] },
+        );
+        if (results.length === 0) return '';
+        if (results.length === 1) return formatDecoded(results[0]);
+        return JSON.stringify(results, null, 2);
+      } catch {
+        return '';
       }
-      // Multiple arguments - decode all and show as array
-      const decoded = arr.map((p) => {
-        const d = decodePayload(p);
-        return d;
-      });
-      return JSON.stringify(decoded, null, 2);
     }
     if (typeof payloads === 'string') return payloads;
     if (payloads && typeof payloads === 'object')
@@ -108,7 +99,9 @@
     otherFields: Record<string, unknown> | null;
   };
 
-  const decodeResultPayload = (result: unknown): DecodedResult => {
+  const decodeResultPayload = async (
+    result: unknown,
+  ): Promise<DecodedResult> => {
     let decoded: unknown = result;
     if (
       result &&
@@ -116,19 +109,32 @@
       'payloads' in result &&
       Array.isArray((result as Record<string, unknown>).payloads)
     ) {
-      decoded = decodePayload((result as Record<string, unknown>).payloads[0]);
+      try {
+        const results = await decodePayloadsAndParseDataToJSON(
+          result as { payloads: unknown[] },
+        );
+        decoded = results[0];
+      } catch {
+        return { llmBlock: null, otherFields: null };
+      }
     }
 
     if (decoded && typeof decoded === 'object') {
       const obj = decoded as Record<string, unknown>;
-      if (obj._details && typeof obj._details === 'object') {
-        const llmData = obj._details as Record<string, unknown>;
+      const detailsObj =
+        obj.details && typeof obj.details === 'object'
+          ? (obj.details as Record<string, unknown>)
+          : null;
+      const llmData = detailsObj?.llm ?? obj._details;
+      if (llmData && typeof llmData === 'object') {
+        const llm = llmData as Record<string, unknown>;
         const llmBlock: Record<string, unknown> = {};
         if ('result' in obj) llmBlock.result = obj.result;
-        Object.assign(llmBlock, llmData);
+        Object.assign(llmBlock, llm);
         const other: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(obj)) {
-          if (k !== '_details' && k !== 'result') other[k] = v;
+          if (k !== '_details' && k !== 'details' && k !== 'result')
+            other[k] = v;
         }
         return {
           llmBlock,
@@ -144,12 +150,14 @@
 
   // --- Build tree node from event group ---
 
-  const buildNode = (group: EventGroup, key: string): TreeNode => {
+  const buildNode = async (
+    group: EventGroup,
+    key: string,
+  ): Promise<TreeNode> => {
     const llmMetadata = getGroupLLMMetadata(group);
     const activityName = group.displayName || group.name || group.label;
     const category = group.category;
 
-    // Determine kind
     let kind: TreeNode['kind'] = 'other';
     if (category === 'activity' || category === 'local-activity')
       kind = 'activity';
@@ -157,7 +165,6 @@
     else if (category === 'timer') kind = 'timer';
     else if (category === 'signal') kind = 'signal';
 
-    // Timestamps
     const firstEvent = group.initialEvent;
     const lastEvent = group.lastEvent;
     const startTime = firstEvent?.eventTime || firstEvent?.timestamp || '';
@@ -167,27 +174,24 @@
         ? new Date(endTime).getTime() - new Date(startTime).getTime()
         : 0;
 
-    // Input
     const scheduledEvent = group.eventList.find(
       (e) =>
         e.eventType === 'ActivityTaskScheduled' ||
         e.eventType === 'StartChildWorkflowExecutionInitiated',
     );
     const input = scheduledEvent?.attributes?.input
-      ? decodeAllPayloads(scheduledEvent.attributes.input)
+      ? await decodeAllPayloads(scheduledEvent.attributes.input)
       : '';
 
-    // Output
     const completedEvent = group.eventList.find(
       (e) =>
         e.eventType === 'ActivityTaskCompleted' ||
         e.eventType === 'ChildWorkflowExecutionCompleted',
     );
     const { llmBlock, otherFields } = completedEvent?.attributes?.result
-      ? decodeResultPayload(completedEvent.attributes.result)
+      ? await decodeResultPayload(completedEvent.attributes.result)
       : { llmBlock: null, otherFields: null };
 
-    // Child workflow info
     let childWorkflowId: string | undefined;
     let childRunId: string | undefined;
     if (kind === 'child-workflow') {
@@ -237,8 +241,8 @@
           g.category === 'local-activity' ||
           g.category === 'child-workflow',
       );
-      childNodes[node.key] = groups.map((g, i) =>
-        buildNode(g, `${node.key}-${i}`),
+      childNodes[node.key] = await Promise.all(
+        groups.map((g, i) => buildNode(g, `${node.key}-${i}`)),
       );
     } catch {
       childNodes[node.key] = [];
@@ -283,7 +287,9 @@
           status: exec.status,
           startTime: exec.startTime,
           endTime: exec.endTime,
-          nodes: groups.map((g, i) => buildNode(g, `${runKey}-${i}`)),
+          nodes: await Promise.all(
+            groups.map((g, i) => buildNode(g, `${runKey}-${i}`)),
+          ),
         });
       }
 
@@ -518,7 +524,9 @@
                             <span class="text-[10px]"
                               ><span class="text-secondary/40">{k}</span>
                               <span class="font-medium text-secondary/70"
-                                >{v}</span
+                                >{typeof v === 'object'
+                                  ? JSON.stringify(v)
+                                  : v}</span
                               ></span
                             >
                           {/each}
@@ -756,7 +764,9 @@
                                 <span class="text-[10px]"
                                   ><span class="text-secondary/40">{k}</span>
                                   <span class="font-medium text-secondary/70"
-                                    >{v}</span
+                                    >{typeof v === 'object'
+                                      ? JSON.stringify(v)
+                                      : v}</span
                                   ></span
                                 >
                               {/each}
@@ -906,7 +916,9 @@
                                             >
                                             <span
                                               class="font-medium text-secondary/70"
-                                              >{v}</span
+                                              >{typeof v === 'object'
+                                                ? JSON.stringify(v)
+                                                : v}</span
                                             ></span
                                           >
                                         {/each}

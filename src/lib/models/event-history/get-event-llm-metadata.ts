@@ -46,7 +46,8 @@ const getString = (v: unknown): string | undefined =>
 const extractFromLLMConvention = (
   resultData: Record<string, unknown>,
 ): LLMMetadata | null => {
-  const llm = resultData._details;
+  const details = resultData.details;
+  const llm = isObject(details) ? details.llm : resultData._details;
   if (!isObject(llm)) return null;
 
   const model = getString(llm.model);
@@ -149,7 +150,11 @@ export const getGroupLLMMetadata = (
   let totalTokens = 0;
   let promptTokens = 0;
   let completionTokens = 0;
+  let totalCost = 0;
   let model: string | undefined;
+  let score: number | undefined;
+  let traceUrl: string | undefined;
+  let extra: Record<string, unknown> | undefined;
   let found = false;
 
   for (const event of group.eventList) {
@@ -161,6 +166,10 @@ export const getGroupLLMMetadata = (
       if (metadata.promptTokens) promptTokens += metadata.promptTokens;
       if (metadata.completionTokens)
         completionTokens += metadata.completionTokens;
+      if (metadata.cost) totalCost += metadata.cost;
+      if (metadata.score != null) score = metadata.score;
+      if (metadata.traceUrl) traceUrl = metadata.traceUrl;
+      if (metadata.extra) extra = { ...extra, ...metadata.extra };
     }
   }
 
@@ -171,5 +180,9 @@ export const getGroupLLMMetadata = (
     totalTokens: totalTokens || undefined,
     promptTokens: promptTokens || undefined,
     completionTokens: completionTokens || undefined,
+    cost: totalCost || undefined,
+    score,
+    traceUrl,
+    ...(extra ? { extra } : {}),
   };
 };

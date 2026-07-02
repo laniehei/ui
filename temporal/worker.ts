@@ -27,7 +27,7 @@ let worker: Worker;
 
 const createWorker = async (): Promise<Worker> => {
   return Worker.create({
-    dataConverter: await getDataConverter(),
+    dataConverter: getDataConverter(),
     workflowsPath: require.resolve('./workflows'),
     activities,
     taskQueue: 'e2e-1',

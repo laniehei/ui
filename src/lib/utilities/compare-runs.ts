@@ -4,18 +4,7 @@ import { toEventHistory } from '$lib/models/event-history';
 import type { LLMMetadata } from '$lib/models/event-history/get-event-llm-metadata';
 import { getGroupLLMMetadata } from '$lib/models/event-history/get-event-llm-metadata';
 import type { HistoryEvent, WorkflowEvents } from '$lib/types/events';
-function decodePayload(payload: unknown): unknown {
-  if (!payload || typeof payload !== 'object') return payload;
-  const p = payload as Record<string, unknown>;
-  if (typeof p.data === 'string') {
-    try {
-      return JSON.parse(atob(p.data));
-    } catch {
-      return atob(p.data);
-    }
-  }
-  return payload;
-}
+import { decodePayloadsAndParseDataToJSON } from '$lib/utilities/decode-payload';
 
 export type CompareStep = {
   activityName: string;
@@ -39,20 +28,25 @@ export type CompareSummary = {
   stepsB: number;
 };
 
-const getActivityResult = (group: EventGroup): string => {
+const getActivityResult = async (group: EventGroup): Promise<string> => {
   for (const event of group.eventList) {
-    const attrs = event.attributes;
+    const attrs = event.attributes as Record<string, unknown> | undefined;
     if (attrs?.result) {
       if (
         typeof attrs.result === 'object' &&
-        'payloads' in attrs.result &&
-        Array.isArray(attrs.result.payloads) &&
-        attrs.result.payloads.length > 0
+        'payloads' in (attrs.result as Record<string, unknown>)
       ) {
-        const decoded = decodePayload(attrs.result.payloads[0]);
-        return typeof decoded === 'string'
-          ? decoded
-          : JSON.stringify(decoded, null, 2);
+        try {
+          const results = await decodePayloadsAndParseDataToJSON(
+            attrs.result as { payloads: unknown[] },
+          );
+          const decoded = results[0];
+          return typeof decoded === 'string'
+            ? decoded
+            : JSON.stringify(decoded, null, 2);
+        } catch {
+          return '';
+        }
       }
       return typeof attrs.result === 'string'
         ? attrs.result
@@ -69,15 +63,18 @@ const getDurationMs = (group: EventGroup): number => {
   return new Date(end).getTime() - new Date(start).getTime();
 };
 
-export const extractCompareSteps = (
+export const extractCompareSteps = async (
   rawEvents: HistoryEvent[],
-): CompareStep[] => {
+): Promise<CompareStep[]> => {
   const events: WorkflowEvents = toEventHistory(rawEvents);
   const groups = groupEvents(events);
 
-  return groups
-    .filter((g) => g.category === 'activity' || g.category === 'local-activity')
-    .map((group) => {
+  const filtered = groups.filter(
+    (g) => g.category === 'activity' || g.category === 'local-activity',
+  );
+
+  return Promise.all(
+    filtered.map(async (group) => {
       const llmMetadata = getGroupLLMMetadata(group);
       return {
         activityName: group.displayName || group.name || group.label,
@@ -86,10 +83,11 @@ export const extractCompareSteps = (
         completionTokens: llmMetadata?.completionTokens,
         totalTokens: llmMetadata?.totalTokens,
         durationMs: getDurationMs(group),
-        output: getActivityResult(group),
+        output: await getActivityResult(group),
         llmMetadata,
       };
-    });
+    }),
+  );
 };
 
 export const matchSteps = (

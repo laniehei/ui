@@ -1,10 +1,12 @@
 import { Client, Connection } from '@temporalio/client';
 
-import { runWorkerUntil } from './workers';
+import { getDataConverter } from './data-converter';
+import { runWorkerUntil } from './worker';
 
 async function main() {
   const connection = await Connection.connect();
-  const client = new Client({ connection });
+  const dataConverter = getDataConverter();
+  const client = new Client({ connection, dataConverter });
 
   // Start two runs with different prompts for A/B comparison
   const handleA = await client.workflow.start('LLMWorkflow', {

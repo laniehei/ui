@@ -7,18 +7,7 @@
   import { getGroupLLMMetadata } from '$lib/models/event-history/get-event-llm-metadata';
   import { fetchRawEvents } from '$lib/services/events-service';
   import type { IterableEvent } from '$lib/types/events';
-  function decodePayload(payload: unknown): unknown {
-    if (!payload || typeof payload !== 'object') return payload;
-    const p = payload as Record<string, unknown>;
-    if (typeof p.data === 'string') {
-      try {
-        return JSON.parse(atob(p.data));
-      } catch {
-        return atob(p.data);
-      }
-    }
-    return payload;
-  }
+  import { decodePayloadsAndParseDataToJSON } from '$lib/utilities/decode-payload';
 
   let {
     items,
@@ -46,32 +35,11 @@
     expandedText[key] = !expandedText[key];
   };
 
-  const decodeAllPayloads = (payloads: unknown): string => {
-    if (
-      payloads &&
-      typeof payloads === 'object' &&
-      'payloads' in payloads &&
-      Array.isArray((payloads as Record<string, unknown>).payloads)
-    ) {
-      const arr = (payloads as Record<string, unknown>).payloads as unknown[];
-      if (arr.length === 0) return '';
-      if (arr.length === 1) {
-        const decoded = decodePayload(arr[0]);
-        if (typeof decoded === 'string') return decoded;
-        if (decoded && typeof decoded === 'object')
-          return JSON.stringify(decoded, null, 2);
-        return String(decoded ?? '');
-      }
-      return JSON.stringify(
-        arr.map((p) => decodePayload(p)),
-        null,
-        2,
-      );
-    }
-    if (typeof payloads === 'string') return payloads;
-    if (payloads && typeof payloads === 'object')
-      return JSON.stringify(payloads, null, 2);
-    return String(payloads ?? '');
+  const formatDecoded = (decoded: unknown): string => {
+    if (typeof decoded === 'string') return decoded;
+    if (decoded && typeof decoded === 'object')
+      return JSON.stringify(decoded, null, 2);
+    return String(decoded ?? '');
   };
 
   type DecodedResult = {
@@ -79,26 +47,23 @@
     otherFields: Record<string, unknown> | null;
   };
 
-  const decodeResultPayload = (result: unknown): DecodedResult => {
-    let decoded: unknown = result;
-    if (
-      result &&
-      typeof result === 'object' &&
-      'payloads' in result &&
-      Array.isArray((result as Record<string, unknown>).payloads)
-    ) {
-      decoded = decodePayload((result as Record<string, unknown>).payloads[0]);
-    }
+  const parseDecodedResult = (decoded: unknown): DecodedResult => {
     if (decoded && typeof decoded === 'object') {
       const obj = decoded as Record<string, unknown>;
-      if (obj._details && typeof obj._details === 'object') {
-        const llmData = obj._details as Record<string, unknown>;
+      const detailsObj =
+        obj.details && typeof obj.details === 'object'
+          ? (obj.details as Record<string, unknown>)
+          : null;
+      const llmData = detailsObj?.llm ?? obj._details;
+      if (llmData && typeof llmData === 'object') {
+        const llm = llmData as Record<string, unknown>;
         const llmBlock: Record<string, unknown> = {};
         if ('result' in obj) llmBlock.result = obj.result;
-        Object.assign(llmBlock, llmData);
+        Object.assign(llmBlock, llm);
         const other: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(obj)) {
-          if (k !== '_details' && k !== 'result') other[k] = v;
+          if (k !== '_details' && k !== 'details' && k !== 'result')
+            other[k] = v;
         }
         return {
           llmBlock,
@@ -146,8 +111,8 @@
           g.category === 'local-activity' ||
           g.category === 'child-workflow',
       );
-      childNodes[node.key] = groups.map((g, i) =>
-        buildNode(g, i, `${node.key}-`),
+      childNodes[node.key] = await Promise.all(
+        groups.map((g, i) => buildNode(g, i, `${node.key}-`)),
       );
     } catch {
       childNodes[node.key] = [];
@@ -156,7 +121,11 @@
     }
   };
 
-  const buildNode = (group: EventGroup, idx: number, prefix = ''): TreeNode => {
+  const buildNode = async (
+    group: EventGroup,
+    idx: number,
+    prefix = '',
+  ): Promise<TreeNode> => {
     const llmMetadata = getGroupLLMMetadata(group);
     const name = group.displayName || group.name || group.label;
     const category = group.category;
@@ -186,12 +155,34 @@
         e.eventType === 'ChildWorkflowExecutionCompleted',
     );
 
-    const input = scheduledEvent?.attributes?.input
-      ? decodeAllPayloads(scheduledEvent.attributes.input)
-      : '';
-    const { llmBlock, otherFields } = completedEvent?.attributes?.result
-      ? decodeResultPayload(completedEvent.attributes.result)
-      : { llmBlock: null, otherFields: null };
+    let input = '';
+    if (scheduledEvent?.attributes?.input) {
+      try {
+        const results = await decodePayloadsAndParseDataToJSON(
+          scheduledEvent.attributes.input as { payloads: unknown[] },
+        );
+        if (results.length === 1) {
+          input = formatDecoded(results[0]);
+        } else {
+          input = JSON.stringify(results, null, 2);
+        }
+      } catch {
+        /* empty */
+      }
+    }
+
+    let llmBlock: Record<string, unknown> | null = null;
+    let otherFields: Record<string, unknown> | null = null;
+    if (completedEvent?.attributes?.result) {
+      try {
+        const results = await decodePayloadsAndParseDataToJSON(
+          completedEvent.attributes.result as { payloads: unknown[] },
+        );
+        ({ llmBlock, otherFields } = parseDecodedResult(results[0]));
+      } catch {
+        /* empty */
+      }
+    }
 
     // Extract child workflow execution info
     let childWorkflowId: string | undefined;
@@ -224,19 +215,22 @@
     };
   };
 
-  const nodes = $derived(
-    items
-      .filter(isEventGroup)
-      .filter((g) => {
-        const group = g as EventGroup;
-        return (
-          group.category === 'activity' ||
-          group.category === 'local-activity' ||
-          group.category === 'child-workflow'
-        );
-      })
-      .map((g, i) => buildNode(g as EventGroup, i)),
-  );
+  let nodes: TreeNode[] = $state([]);
+
+  $effect(() => {
+    const groups = items.filter(isEventGroup).filter((g) => {
+      const group = g as EventGroup;
+      return (
+        group.category === 'activity' ||
+        group.category === 'local-activity' ||
+        group.category === 'child-workflow'
+      );
+    }) as EventGroup[];
+
+    Promise.all(groups.map((g, i) => buildNode(g, i))).then((resolved) => {
+      nodes = resolved;
+    });
+  });
 
   const formatMs = (ms: number): string => {
     if (ms < 1000) return `${ms}ms`;
@@ -413,7 +407,10 @@
                       {#each Object.entries(meta) as [k, v]}
                         <span class="text-[10px]"
                           ><span class="text-secondary/40">{k}</span>
-                          <span class="font-medium text-secondary/70">{v}</span
+                          <span class="font-medium text-secondary/70"
+                            >{typeof v === 'object'
+                              ? JSON.stringify(v)
+                              : v}</span
                           ></span
                         >
                       {/each}

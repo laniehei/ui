@@ -4,18 +4,7 @@
   import type { EventGroup } from '$lib/models/event-groups/event-groups';
   import { getGroupLLMMetadata } from '$lib/models/event-history/get-event-llm-metadata';
   import type { IterableEvent } from '$lib/types/events';
-  function decodePayload(payload: unknown): unknown {
-    if (!payload || typeof payload !== 'object') return payload;
-    const p = payload as Record<string, unknown>;
-    if (typeof p.data === 'string') {
-      try {
-        return JSON.parse(atob(p.data));
-      } catch {
-        return atob(p.data);
-      }
-    }
-    return payload;
-  }
+  import { decodePayloadsAndParseDataToJSON } from '$lib/utilities/decode-payload';
 
   let { items }: { items: IterableEvent[] } = $props();
 
@@ -32,46 +21,25 @@
     timestamp: string;
   };
 
-  const decodeFirstPayload = (payloads: unknown): string => {
-    if (
-      payloads &&
-      typeof payloads === 'object' &&
-      'payloads' in payloads &&
-      Array.isArray((payloads as Record<string, unknown>).payloads)
-    ) {
-      const arr = (payloads as Record<string, unknown>).payloads as unknown[];
-      if (arr.length > 0) {
-        const decoded = decodePayload(arr[0]);
-        if (typeof decoded === 'string') return decoded;
-        if (decoded && typeof decoded === 'object')
-          return JSON.stringify(decoded, null, 2);
-      }
-    }
-    if (typeof payloads === 'string') return payloads;
-    if (payloads && typeof payloads === 'object')
-      return JSON.stringify(payloads, null, 2);
-    return String(payloads ?? '');
+  const formatDecoded = (decoded: unknown): string => {
+    if (typeof decoded === 'string') return decoded;
+    if (decoded && typeof decoded === 'object')
+      return JSON.stringify(decoded, null, 2);
+    return String(decoded ?? '');
   };
 
-  const extractResultText = (result: unknown): string => {
-    let decoded: unknown = result;
-    if (
-      result &&
-      typeof result === 'object' &&
-      'payloads' in result &&
-      Array.isArray((result as Record<string, unknown>).payloads)
-    ) {
-      decoded = decodePayload((result as Record<string, unknown>).payloads[0]);
-    }
-
+  const extractOutputFromDecoded = (decoded: unknown): string => {
     if (decoded && typeof decoded === 'object') {
       const obj = decoded as Record<string, unknown>;
-      // Prefer _details.response for chat display
-      if (obj._details && typeof obj._details === 'object') {
-        const details = obj._details as Record<string, unknown>;
-        if (typeof details.response === 'string') return details.response;
+      const detailsObj =
+        obj.details && typeof obj.details === 'object'
+          ? (obj.details as Record<string, unknown>)
+          : null;
+      const llm = detailsObj?.llm ?? obj._details;
+      if (llm && typeof llm === 'object') {
+        const d = llm as Record<string, unknown>;
+        if (typeof d.response === 'string') return d.response;
       }
-      // Fall back to result field
       if ('result' in obj) return String(obj.result);
       return JSON.stringify(decoded, null, 2);
     }
@@ -79,45 +47,61 @@
     return JSON.stringify(decoded, null, 2);
   };
 
-  const extractStep = (item: IterableEvent): ActivityStep | null => {
-    if (!isEventGroup(item)) return null;
+  let steps: ActivityStep[] = $state([]);
 
-    const group = item as EventGroup;
-    const llmMetadata = getGroupLLMMetadata(group);
-    const activityName = group.displayName || group.name || group.label;
+  $effect(() => {
+    const groups = items.filter(isEventGroup) as EventGroup[];
+    const promises = groups.map(async (group) => {
+      const llmMetadata = getGroupLLMMetadata(group);
+      const activityName = group.displayName || group.name || group.label;
 
-    const scheduledEvent = group.eventList.find(
-      (e) => e.eventType === 'ActivityTaskScheduled',
-    );
-    const completedEvent = group.eventList.find(
-      (e) => e.eventType === 'ActivityTaskCompleted',
-    );
+      const scheduledEvent = group.eventList.find(
+        (e) => e.eventType === 'ActivityTaskScheduled',
+      );
+      const completedEvent = group.eventList.find(
+        (e) => e.eventType === 'ActivityTaskCompleted',
+      );
 
-    const input = scheduledEvent?.attributes?.input
-      ? decodeFirstPayload(scheduledEvent.attributes.input)
-      : '';
-    const output = completedEvent?.attributes?.result
-      ? extractResultText(completedEvent.attributes.result)
-      : '';
+      let input = '';
+      if (scheduledEvent?.attributes?.input) {
+        try {
+          const results = await decodePayloadsAndParseDataToJSON(
+            scheduledEvent.attributes.input as { payloads: unknown[] },
+          );
+          input = formatDecoded(results[0]);
+        } catch {
+          /* empty */
+        }
+      }
 
-    return {
-      activityName,
-      input,
-      output,
-      model: llmMetadata?.model,
-      totalTokens: llmMetadata?.totalTokens,
-      cost: llmMetadata?.cost,
-      isLLM: !!llmMetadata,
-      timestamp: completedEvent?.eventTime || completedEvent?.timestamp || '',
-    };
-  };
+      let output = '';
+      if (completedEvent?.attributes?.result) {
+        try {
+          const results = await decodePayloadsAndParseDataToJSON(
+            completedEvent.attributes.result as { payloads: unknown[] },
+          );
+          output = extractOutputFromDecoded(results[0]);
+        } catch {
+          /* empty */
+        }
+      }
 
-  const steps = $derived(
-    items
-      .filter(isEventGroup)
-      .map(extractStep)
-      .filter((s): s is ActivityStep => s !== null),
-  );
+      return {
+        activityName,
+        input,
+        output,
+        model: llmMetadata?.model,
+        totalTokens: llmMetadata?.totalTokens,
+        cost: llmMetadata?.cost,
+        isLLM: !!llmMetadata,
+        timestamp: completedEvent?.eventTime || completedEvent?.timestamp || '',
+      } as ActivityStep;
+    });
+
+    Promise.all(promises).then((resolved) => {
+      steps = resolved;
+    });
+  });
 
   // Track expanded state per step
   let expandedInputs: Record<number, boolean> = $state({});

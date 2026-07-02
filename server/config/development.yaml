@@ -53,7 +53,7 @@ uiServerTLS:
   certFile:
   keyFile:
 codec:
-  endpoint:
+  endpoint: http://localhost:8888
   passAccessToken: false
   includeCredentials: false
   defaultErrorMessage:

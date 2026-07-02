@@ -55,8 +55,8 @@
         }),
       ]);
 
-      const stepsA = extractCompareSteps(eventsA);
-      const stepsB = extractCompareSteps(eventsB);
+      const stepsA = await extractCompareSteps(eventsA);
+      const stepsB = await extractCompareSteps(eventsB);
       pairs = matchSteps(stepsA, stepsB);
       summary = computeSummary(stepsA, stepsB);
     } catch (e) {
