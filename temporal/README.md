@@ -1,6 +1,6 @@
 # LLM Observability Demo
 
-Branch: `lanie/ai-observability`
+Branch: `lanie/ai-metadata`
 
 This directory contains demo workflows and activities used to prototype the [First-class AI metadata](https://www.notion.so/temporalio/First-class-AI-metadata-3748fc56773880ab9fe6fcf300962f9d) UI experience. The activities simulate LLM calls with hardcoded responses and metadata.
 
@@ -16,21 +16,27 @@ This demo requires the prototype UI branch, a local Temporal server, and the dem
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm
+- Node.js 22.14+
+- pnpm 10.10+
 - Temporal CLI (`brew install temporal` or see [docs](https://docs.temporal.io/cli))
-- This repo checked out on the `lanie/ai-observability` branch
 - (Optional) `BRAINTRUST_API_KEY` in your environment for trace URL integration
 
 ### Steps
 
-1. Start a Temporal dev server. If you already have one running, skip this step.
+1. Clone the prototype branch and enter the repo.
+
+```bash
+git clone -b lanie/ai-metadata https://github.com/laniehei/ui.git
+cd ui
+```
+
+2. Start a Temporal dev server. If you already have one running, skip this step.
 
 ```bash
 temporal server start-dev
 ```
 
-2. Install dependencies and start the prototype UI (from repo root).
+3. Install dependencies and start the prototype UI (from repo root, in a separate terminal).
 
 ```bash
 pnpm install
@@ -39,15 +45,19 @@ pnpm dev
 
 The UI starts on a local port (check the terminal output, typically `http://localhost:3001/`). The `pnpm dev` command also tries to start its own Temporal server. If one is already running on port 7233, you'll see a port conflict error in the logs. This is safe to ignore - the UI connects to the existing server.
 
-3. In a separate terminal, run the demo workflows (from repo root).
+4. In a third terminal, run the demo workflows (from repo root).
 
 ```bash
 node_modules/.bin/esno temporal/run-llm-demo.ts
 ```
 
-4. Open the UI and navigate to the default namespace workflows page. You should see:
+5. Open the UI and navigate to the default namespace workflows page. You should see:
    - `llm-workflow-run-a-v2` and `llm-workflow-run-b-v2` (A/B comparison pair)
    - `chat-session-user-123` (multi-turn agent session)
+
+### Prompt for an AI agent
+
+> Clone `https://github.com/laniehei/ui` on branch `lanie/ai-metadata`. Read `temporal/README.md` for setup instructions, then start the Temporal dev server and UI dev server, and run the demo workflows. Report the local UI URL and the demo workflow IDs.
 
 ## What the demo runs
 
